@@ -27,7 +27,7 @@ Shadowrocket（iOS）代理分流配置。核心策略：国内域名/IP 直连�
 
 代理分流按**首条匹配生效**（first-match-wins），规则顺序即优先级。
 
-`shadowrocket.conf` 的 `[Rule]` 按 `Reject → ChinaDirect → ACL4SSR(含 BanAD) → GEOIP,CN → FINAL` 自上而下匹配。关键约束：
+`shadowrocket.conf` 的 `[Rule]` 按 `Reject → ChinaDirect → 私有地址(meta) → ACL4SSR/meta(含 BanAD、category-ads-all) → 国内域名/IP → GEOIP,CN → FINAL` 自上而下匹配。关键约束：
 
 - **自定义规则必须在广告拦截之前** —— 否则会被 `BanAD` 抢先拦掉，自定义直连形同虚设。
 - **`FINAL` 必须置于末尾** —— 它匹配一切流量，一旦前移会吞掉后续所有规则，分流形同虚设。
@@ -56,12 +56,26 @@ Shadowrocket（iOS）代理分流配置。核心策略：国内域名/IP 直连�
 
 ### 优先依赖上游规则，不重复收录
 
-`ChinaDirect.list` 只补 **ACL4SSR `ChinaDomain.list` 未覆盖**的域名（IP 兜底带 `no-resolve`，不匹配域名请求，不视为域名兜底）。已被上游覆盖的不重复添加（DRY）：
+`ChinaDirect.list` 只补 **ACL4SSR `ChinaDomain.list` 与 meta-rules-dat `geosite cn` 均未覆盖**的域名（IP 兜底带 `no-resolve`，不匹配域名请求，不视为域名兜底）。已被上游覆盖的不重复添加（DRY）：
 
-- `.com.cn` / `.cn` 域名：由 ACL4SSR `ChinaDomain.list` 兜底，通常无需手动添加。注意 Shadowrocket 的 IP 兜底带 `no-resolve`，**不会为域名触发解析**，纯域名请求跳过 IP 规则落 `FINAL`，不能指望它兜住域名
-- ACL4SSR 已收录的域名：如 `abchina.com`、`cmbchina.com`、`ecitic.com`
+- `.com.cn` / `.cn` 域名：由 ACL4SSR `ChinaDomain.list` / meta `cn.list`（含 `tld-cn`）兜底，通常无需手动添加。注意 Shadowrocket 的 IP 兜底带 `no-resolve`，**不会为域名触发解析**，纯域名请求跳过 IP 规则落 `FINAL`，不能指望它兜住域名
+- 上游已收录的域名（ACL4SSR 或 meta `cn.list`）：如 `abchina.com`、`cmbchina.com`、`ecitic.com`
 
-真正需要手动补的是 **`.com` 顶级域且不被 ACL4SSR `ChinaDomain.list` 覆盖** 的国内业务域名。
+真正需要手动补的是 **`.com` 顶级域且不被 ACL4SSR `ChinaDomain.list` 与 meta `cn.list` 覆盖** 的国内业务域名。
+
+### 上游规则集（ACL4SSR + meta-rules-dat）
+
+两套上游并用，分工如下（覆盖率 2026-10-07 实测）：
+
+| 用途 | 来源 | 说明 |
+|---|---|---|
+| 私有地址 | meta `geosite private` + `geoip private` | 取代 ACL4SSR `LocalAreaNetwork`，含 `100.64.0.0/10`（Tailscale） |
+| 国内域名 | ACL4SSR `ChinaDomain/ChinaMedia` + meta `geosite cn` | ACL 的 623 条中 63 条（如 baidustatic.com、bootcss.com）meta 未收录，故并存；meta `cn.list` 约 11 万条/3MB，**iOS 隧道内存有风险，上手机后若 Shadowrocket 崩溃/卡顿，先移除该行** |
+| 国内 IP | ACL4SSR `ChinaCompanyIp` + meta `geoip cn` | meta 列表无内联 `no-resolve`，已在 `RULE-SET` 行补 |
+| 广告 | ACL4SSR `BanAD/BanProgramAD` + meta `category-ads-all` | meta 仅覆盖 ACL 的约 12%，取并集而非替换 |
+| Apple / UnBan | ACL4SSR | meta `apple` 缺 `appstore.com`、`akadns.net`，UnBan 无对应物 |
+
+**不要用** meta `geolocation-cn` 代替 `cn.list`：仅 5.4k 条，漏掉 163.com、1688.com、360buyimg.com 等；**不要加** `category-httpdns-cn`（见 [troubleshooting](docs/troubleshooting.md) BlockHttpDNS 一节）。
 
 ### DOMAIN-SUFFIX 优先
 
