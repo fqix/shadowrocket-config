@@ -1,6 +1,6 @@
 # Shadowrocket 防 DNS 泄露配置
 
-基于 [ACL4SSR](https://github.com/ACL4SSR/ACL4SSR) 与 [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 规则集的 Shadowrocket 配置文件，国内 UDP + 境外 DoH 混合策略，兼顾防泄露与 CDN 调度精准。
+基于 [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 规则集的 Shadowrocket 配置文件，国内 UDP + 境外 DoH 混合策略，兼顾防泄露与 CDN 调度精准。
 
 ## 订阅链接
 
@@ -44,62 +44,37 @@ https://cdn.jsdelivr.net/gh/fqix/shadowrocket-config@main/shadowrocket.conf
 
 | 序号 | 策略 | 规则 | 说明 |
 |---|---|---|---|
-| 1 | REJECT | 自定义广告 / 追踪 SDK | 来源 `rules/Reject.list` |
-| 2 | DIRECT | 自定义国内直连域名 | 来源 `rules/ChinaDirect.list` |
-| 3 | DIRECT | 局域网 / 解禁名单 | meta `geosite/geoip private`（含 Tailscale `100.64.0.0/10`）/ ACL4SSR `UnBan.list` |
-| 4 | DIRECT | Apple / App Store | ACL4SSR `Apple.list`，**美区账号不清楚是否有风险** |
-| 5 | REJECT | 广告域名 | ACL4SSR `BanAD.list` / `BanProgramAD.list` + meta `category-ads-all` |
-| 6 | DIRECT | 国内域名 / 流媒体 | ACL4SSR `ChinaDomain.list` / `ChinaMedia.list` + meta `geosite cn` |
-| 7 | DIRECT | 国内企业 IP / 国内 IP | ACL4SSR `ChinaCompanyIp.list` / meta `geoip cn` |
-| 8 | DIRECT | `GEOIP,CN` | 内置 GeoIP 兜底 |
-| 9 | PROXY | 其他流量 | `FINAL,PROXY,dns-failed` 兜底 |
+| 1 | DIRECT | 局域网 | meta `geosite/geoip private`（含 Tailscale `100.64.0.0/10`） |
+| 2 | DIRECT | Apple / App Store | meta `geosite apple`，**美区账号不清楚是否有风险** |
+| 3 | REJECT | 广告域名 | meta `category-ads-all` |
+| 4 | DIRECT | 国内域名 | meta `geosite cn` |
+| 5 | DIRECT | 国内 IP | meta `geoip cn` |
+| 6 | DIRECT | `GEOIP,CN` | 内置 GeoIP 兜底 |
+| 7 | PROXY | 其他流量 | `FINAL,PROXY,dns-failed` 兜底 |
 
 
 ## 维护
 
 ### 规则集同步
 
-`RULE-SET` 分两类：
-
-- **meta-rules-dat 远程规则**：引用 [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 的 `meta` 分支 classical 列表，自动同步。`geosite cn` 约 11 万条，若 iOS 上 Shadowrocket 内存吃紧，移除该行即可。
-- **ACL4SSR 远程规则**：引用 [ACL4SSR](https://github.com/ACL4SSR/ACL4SSR) 仓库，上游更新后下次刷新订阅自动同步，无需手动维护。
-- **自建规则**（`rules/` 目录）：`Reject.list` 和 `ChinaDirect.list` 引用本仓库，手动维护，新增域名推送后下次刷新生效。
+所有 `RULE-SET` 均引用 [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 的 `meta` 分支 classical 列表，上游更新后下次刷新订阅自动同步。`geosite cn` 约 11 万条，若 iOS 上 Shadowrocket 内存吃紧，移除该行即可。
 
 ### 修改配置
 
 直接编辑 `shadowrocket.conf` 并推送到本仓库，Shadowrocket 下次刷新订阅即生效。
 
-### 自建规则维护
-
-| 文件 | 用途 |
-|---|---|
-| `rules/Reject.list` | ACL4SSR 未覆盖的广告 / 追踪 SDK 域名，新增后走 REJECT |
-| `rules/ChinaDirect.list` | ACL4SSR 未覆盖的国内厂商域名，新增后走 DIRECT |
-
-新增域名前建议先用 `domain-verify` skill 确认归属，避免误添加抢注域名。
-
 ### 切换 CDN 源
 
-如发现 `raw.githubusercontent.com` 在国内拉取失败，临时改用 jsDelivr 订阅链接即可。如需让配置文件内部的 `RULE-SET` 也走 jsDelivr，替换以下两处前缀：
+如发现 `raw.githubusercontent.com` 在国内拉取失败，临时改用 jsDelivr 订阅链接即可。如需让配置文件内部的 `RULE-SET` 也走 jsDelivr，替换以下前缀：
 
-**ACL4SSR 规则：**
+**meta-rules-dat 规则：**
 
 ```
-https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/
+https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/
 ```
 →
 ```
-https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/
-```
-
-**自建规则：**
-
-```
-https://raw.githubusercontent.com/fqix/shadowrocket-config/main/rules/
-```
-→
-```
-https://cdn.jsdelivr.net/gh/fqix/shadowrocket-config@main/rules/
+https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/
 ```
 
 文件路径保持不变。
@@ -110,4 +85,4 @@ v2rayN 端已于 2026-09-27 停止维护，配置说明、维护流程与排查�
 
 # 许可证
 
-仅供个人使用。规则集版权归 [ACL4SSR](https://github.com/ACL4SSR/ACL4SSR) 与 [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 所有。
+仅供个人使用。规则集版权归 [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 所有。
